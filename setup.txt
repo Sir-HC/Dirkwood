@@ -1,0 +1,6 @@
+cd into misc
+run shell.bat
+cd into code
+build
+
+executable in root path ./build

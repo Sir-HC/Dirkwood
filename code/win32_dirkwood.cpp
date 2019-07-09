@@ -3,36 +3,40 @@
 
 
    ================================================== */
-
-#include <windows.h>
 #include <stdint.h>
-#include <xinput.h>
-#include <dsound.h>
-#include <math.h>
-
-#pragma comment(lib,"user32.lib") 
-#pragma comment(lib,"gdi32.lib") 
-
 
 #define local_persist static
 #define global_variable static
 #define internal static
+
 #define Pi32 3.14159265359f
 
 typedef int8_t int8;
 typedef int16_t int16;
 typedef int32_t int32;
 typedef int64_t int64;
+typedef int32 bool32;
 
 typedef uint8_t uint8;
 typedef uint16_t uint16;
 typedef uint32_t uint32;
 typedef uint64_t uint64;
 
-typedef int32 bool32;
-
 typedef float real32;
 typedef double real64;
+
+#include "dirkwood.cpp"
+
+#include <windows.h>
+#include <xinput.h>
+#include <dsound.h>
+
+#include <math.h>
+#include <stdio.h>
+
+#pragma comment(lib,"user32.lib") 
+#pragma comment(lib,"gdi32.lib") 
+
 
 struct win32_offscreen_buffer{
 	BITMAPINFO Info;
@@ -219,23 +223,7 @@ Win32GetWindowDimension(HWND Window) {
 	return Res;
 }
 
-internal void renderGradient(win32_offscreen_buffer *Buffer, int XOffset, int YOffset) {
 
-	uint8 *row = (uint8 *)Buffer->Memory;
-
-	for(int y = 0; y < Buffer->Height; ++y)
-	{
-		uint32 *pixel = (uint32 *)row;
-		for(int x = 0; x < Buffer->Width; ++x){
-			uint8 Blue = (x + XOffset);
-			uint8 Green = (y + YOffset);
-			uint8 Red = (y );
-
-			*pixel++ = ((Red << 16) | (Green << 8) | Blue);
-		}
-		row += Buffer->Pitch;
-	}
-}
 
 internal void Win32ResizeDIBSection(win32_offscreen_buffer *Buffer, int Width, int Height) {
 
@@ -276,7 +264,7 @@ internal void Win32DisplayBufferToWindow(win32_offscreen_buffer *Buffer,
 		SRCCOPY);
 }
 
-LRESULT CALLBACK Win32MainWindowCallback(HWND   Window,
+internal LRESULT CALLBACK Win32MainWindowCallback(HWND   Window,
                                     UINT   Message,
                                     WPARAM WParam,
                                     LPARAM LParam)
@@ -379,10 +367,13 @@ int CALLBACK WinMain(HINSTANCE Instance,
 		                 HINSTANCE PrevInstance,
 		                 LPSTR CommandLine,
 		                 int ShowCode)
-{
+{	
+	LARGE_INTEGER perfCounterFrequency;
+	QueryPerformanceFrequency(&perfCounterFrequency);
+	uint64 countFrequency = perfCounterFrequency.QuadPart;
+
 	Win32LoadXInput();
 	WNDCLASSA WindowClass = {};
-
 
 	WindowClass.style = CS_HREDRAW|CS_VREDRAW;
 	WindowClass.lpfnWndProc = Win32MainWindowCallback;
@@ -404,115 +395,145 @@ int CALLBACK WinMain(HINSTANCE Instance,
 		Instance,
 		0);
 		if(Window){
-		MSG Message;
-		Running = true;
+			MSG Message;
+			Running = true;
 	   
 	   
-		win32_sound_output soundOutput = {};
-		soundOutput.samplesPerSecond = 48000;
-		soundOutput.ToneHtz = 256;
-		soundOutput.runningSampleIndex = 0;
-		soundOutput.wavePeriod = soundOutput.samplesPerSecond / soundOutput.ToneHtz;
-		soundOutput.bytesPerSample = sizeof(int16) * 2;
-		soundOutput.secondaryBufferSize = soundOutput.samplesPerSecond * soundOutput.bytesPerSample;
-		soundOutput.volume = 1000;
-		soundOutput.latencySampleCount = soundOutput.samplesPerSecond / 15;
-		Win32InitDSound(Window, soundOutput.samplesPerSecond, soundOutput.secondaryBufferSize);
-		Win32FillSoundBuffer(&soundOutput, 0, soundOutput.latencySampleCount * soundOutput.bytesPerSample);
-		globalSecondaryBuffer->Play(0, 0, DSBPLAY_LOOPING);
+			win32_sound_output soundOutput = {};
+			soundOutput.samplesPerSecond = 48000;
+			soundOutput.ToneHtz = 256;
+			soundOutput.runningSampleIndex = 0;
+			soundOutput.wavePeriod = soundOutput.samplesPerSecond / soundOutput.ToneHtz;
+			soundOutput.bytesPerSample = sizeof(int16) * 2;
+			soundOutput.secondaryBufferSize = soundOutput.samplesPerSecond * soundOutput.bytesPerSample;
+			soundOutput.volume = 1000;
+			soundOutput.latencySampleCount = soundOutput.samplesPerSecond / 15;
+			Win32InitDSound(Window, soundOutput.samplesPerSecond, soundOutput.secondaryBufferSize);
+			Win32FillSoundBuffer(&soundOutput, 0, soundOutput.latencySampleCount * soundOutput.bytesPerSample);
+			globalSecondaryBuffer->Play(0, 0, DSBPLAY_LOOPING);
 
-		XINPUT_VIBRATION vib;
-		vib.wLeftMotorSpeed = 0;
-		vib.wRightMotorSpeed = 0;
-	   
-		while(Running){
-			while(PeekMessage(&Message, 0, 0, 0, PM_REMOVE)){
-				if(Message.message == WM_QUIT){
-					Running = false;
-				}
+			XINPUT_VIBRATION vib;
+			vib.wLeftMotorSpeed = 0;
+			vib.wRightMotorSpeed = 0;
+		
+			LARGE_INTEGER lastCounter;
+			QueryPerformanceCounter(&lastCounter);
+			
+			uint64 lastCycleCount = __rdtsc();
 
-				TranslateMessage(&Message);
-				DispatchMessage(&Message);
-			}
-
-			for(DWORD index = 0; index < XUSER_MAX_COUNT; index++){
-				XINPUT_STATE controllerState;
-				if(XInputGetState(index, &controllerState) == ERROR_SUCCESS){
-					// controller is plugged in
-					// look at contollerState.dwPacketnUmber increment is high?
-					XINPUT_GAMEPAD *pad = &controllerState.Gamepad;
-
-					bool up = (pad->wButtons & XINPUT_GAMEPAD_DPAD_UP);
-					bool down = (pad->wButtons & XINPUT_GAMEPAD_DPAD_DOWN);
-					bool left = (pad->wButtons & XINPUT_GAMEPAD_DPAD_LEFT);
-					bool right = (pad->wButtons & XINPUT_GAMEPAD_DPAD_RIGHT);
-					bool start = (pad->wButtons & XINPUT_GAMEPAD_START);
-					bool back = (pad->wButtons & XINPUT_GAMEPAD_BACK);
-					bool lShoulder = (pad->wButtons & XINPUT_GAMEPAD_LEFT_SHOULDER);
-					bool rShoulder = (pad->wButtons & XINPUT_GAMEPAD_RIGHT_SHOULDER);
-					bool aButton = (pad->wButtons & XINPUT_GAMEPAD_A);
-					bool bButton = (pad->wButtons & XINPUT_GAMEPAD_B);
-					bool xButton = (pad->wButtons & XINPUT_GAMEPAD_X);
-					bool yButton = (pad->wButtons & XINPUT_GAMEPAD_Y);
-
-					int16 stickX = pad->sThumbLX;
-					int16 stickY = pad->sThumbLY;
-
-					if(aButton){
-						YOffset += 2;
+			while(Running){
+				while(PeekMessage(&Message, 0, 0, 0, PM_REMOVE)){
+					if(Message.message == WM_QUIT){
+						Running = false;
 					}
-					if(bButton){
-						XOffset -= 1;
-					}
-					if(yButton){
-						vib.wLeftMotorSpeed += 200;
-						vib.wRightMotorSpeed += 200;
-						XInputSetState(0, &vib);
-					}
-					if(xButton){
-						vib.wLeftMotorSpeed = 0;
-						vib.wRightMotorSpeed = 0;
-						XInputSetState(0, &vib);
-					}
-					soundOutput.ToneHtz = 512 + (int)(256.0f * ((real32)stickY / 30000.0f));
-					soundOutput.wavePeriod = soundOutput.samplesPerSecond / soundOutput.ToneHtz;
-				}
-				else{
-					//controller not available
-				}
-			}
 
-			renderGradient(&GlobalBackBuffer, XOffset, YOffset);
-
-			// Sound output testing
-			DWORD playCursor;
-			DWORD writeCursor;
-			if(SUCCEEDED(globalSecondaryBuffer->GetCurrentPosition(&playCursor, &writeCursor))){
-				DWORD bytesToWrite;
-				DWORD byteToLock = (soundOutput.runningSampleIndex * soundOutput.bytesPerSample) % soundOutput.secondaryBufferSize;
-				DWORD targetCursor = (playCursor + (soundOutput.latencySampleCount * soundOutput.bytesPerSample)) % soundOutput.secondaryBufferSize;
-				if (byteToLock > targetCursor) {
-					bytesToWrite = soundOutput.secondaryBufferSize - byteToLock;
-					bytesToWrite += targetCursor;
+					TranslateMessage(&Message);
+					DispatchMessage(&Message);
 				}
-				else {
-						bytesToWrite = targetCursor - byteToLock;
-				}
-				Win32FillSoundBuffer(&soundOutput, byteToLock, bytesToWrite);
-			}
 
-			HDC DeviceContext = GetDC(Window);
-			win32_window_dimension Dimension = Win32GetWindowDimension(Window);
-			Win32DisplayBufferToWindow(&GlobalBackBuffer, DeviceContext, Dimension.Width, Dimension.Height);
-			ReleaseDC(Window, DeviceContext);
+				for(DWORD index = 0; index < XUSER_MAX_COUNT; index++){
+					XINPUT_STATE controllerState;
+					if(XInputGetState(index, &controllerState) == ERROR_SUCCESS){
+						// controller is plugged in
+						// look at contollerState.dwPacketnUmber increment is high?
+						XINPUT_GAMEPAD *pad = &controllerState.Gamepad;
+
+						bool up = (pad->wButtons & XINPUT_GAMEPAD_DPAD_UP);
+						bool down = (pad->wButtons & XINPUT_GAMEPAD_DPAD_DOWN);
+						bool left = (pad->wButtons & XINPUT_GAMEPAD_DPAD_LEFT);
+						bool right = (pad->wButtons & XINPUT_GAMEPAD_DPAD_RIGHT);
+						bool start = (pad->wButtons & XINPUT_GAMEPAD_START);
+						bool back = (pad->wButtons & XINPUT_GAMEPAD_BACK);
+						bool lShoulder = (pad->wButtons & XINPUT_GAMEPAD_LEFT_SHOULDER);
+						bool rShoulder = (pad->wButtons & XINPUT_GAMEPAD_RIGHT_SHOULDER);
+						bool aButton = (pad->wButtons & XINPUT_GAMEPAD_A);
+						bool bButton = (pad->wButtons & XINPUT_GAMEPAD_B);
+						bool xButton = (pad->wButtons & XINPUT_GAMEPAD_X);
+						bool yButton = (pad->wButtons & XINPUT_GAMEPAD_Y);
+
+						int16 stickX = pad->sThumbLX;
+						int16 stickY = pad->sThumbLY;
+
+						if(aButton){
+							YOffset += 2;
+						}
+						if(bButton){
+							XOffset -= 1;
+						}
+						if(yButton){
+							vib.wLeftMotorSpeed += 200;
+							vib.wRightMotorSpeed += 200;
+							XInputSetState(0, &vib);
+						}
+						if(xButton){
+							vib.wLeftMotorSpeed = 0;
+							vib.wRightMotorSpeed = 0;
+							XInputSetState(0, &vib);
+						}
+						soundOutput.ToneHtz = 512 + (int)(256.0f * ((real32)stickY / 30000.0f));
+						soundOutput.wavePeriod = soundOutput.samplesPerSecond / soundOutput.ToneHtz;
+					}
+					else{
+						//controller not available
+					}
+				}
+				game_offscreen_buffer goBuffer = {};
+				goBuffer.Memory = GlobalBackBuffer.Memory;
+				goBuffer.Width = GlobalBackBuffer.Width;
+				goBuffer.Height = GlobalBackBuffer.Height;
+				goBuffer.Pitch = GlobalBackBuffer.Pitch;
+
+				GameUpdateAndRender(&goBuffer, XOffset, YOffset);
+
+				// Sound output testing
+				DWORD playCursor;
+				DWORD writeCursor;
+				if(SUCCEEDED(globalSecondaryBuffer->GetCurrentPosition(&playCursor, &writeCursor))){
+					DWORD bytesToWrite;
+					DWORD byteToLock = (soundOutput.runningSampleIndex * soundOutput.bytesPerSample) % soundOutput.secondaryBufferSize;
+					DWORD targetCursor = (playCursor + (soundOutput.latencySampleCount * soundOutput.bytesPerSample)) % soundOutput.secondaryBufferSize;
+					if (byteToLock > targetCursor) {
+						bytesToWrite = soundOutput.secondaryBufferSize - byteToLock;
+						bytesToWrite += targetCursor;
+					}
+					else {
+							bytesToWrite = targetCursor - byteToLock;
+					}
+					Win32FillSoundBuffer(&soundOutput, byteToLock, bytesToWrite);
+				}
+
+				HDC DeviceContext = GetDC(Window);
+				win32_window_dimension Dimension = Win32GetWindowDimension(Window);
+				Win32DisplayBufferToWindow(&GlobalBackBuffer, DeviceContext, Dimension.Width, Dimension.Height);
+				ReleaseDC(Window, DeviceContext);
+				
+				uint64 endCycleCount = __rdtsc();
+
+				uint64 cyclesElasped = endCycleCount - lastCycleCount;
+
+				LARGE_INTEGER endCounter;
+				QueryPerformanceCounter(&endCounter);
+
+				
+				int64 counterElasped = endCounter.QuadPart - lastCounter.QuadPart;
+				real32 msPerFrame = (real32)(1000.0f * (real32)counterElasped / (real32)countFrequency);
+				real32 fps = (int32)countFrequency / counterElasped;
+				real32 MCPF = (real32)((cyclesElasped) / (1000.0f * 1000.0f));
+
+				char Buffer[256];
+				sprintf(Buffer, "%.02fms - %.02fFPS - %.02f Mcycles/f\n", msPerFrame, fps, MCPF);
+				OutputDebugStringA(Buffer);
+
+				lastCycleCount = endCycleCount;
+				lastCounter = endCounter;
 			}
 		}
 		else{
-		//Log error
+			//Log error
 		}
 	}
 	else{
-	//Log error
+		//Log error
 	}
 
 	return(0);

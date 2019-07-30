@@ -35,41 +35,17 @@ typedef double real64;
 
 #include <stdio.h>
 
+#include "win32_dirkwood.h"
+
 #pragma comment(lib,"user32.lib") 
 #pragma comment(lib,"gdi32.lib") 
 
 
-struct win32_offscreen_buffer{
-	BITMAPINFO Info;
-	void *Memory;
-	int Width;
-	int Height;
-	int Pitch;
-	int BytesPerPixel;
-};
 
-struct win32_window_dimension{
-	int Width;
-	int Height;
-};
-
-struct win32_sound_output {
-	int samplesPerSecond;
-	int ToneHtz;
-	uint32 runningSampleIndex;
-	int wavePeriod;
-	int bytesPerSample;
-	int secondaryBufferSize;
-	uint16 volume;
-	real32 tSine;
-	int latencySampleCount;
-};
 
 global_variable bool Running;
 global_variable win32_offscreen_buffer GlobalBackBuffer;
 global_variable LPDIRECTSOUNDBUFFER globalSecondaryBuffer;
-global_variable int XOffset = 0;
-global_variable int YOffset = 0;
 
 
 /***************************
@@ -291,92 +267,92 @@ internal LRESULT CALLBACK Win32MainWindowCallback(HWND   Window,
 {
 	LRESULT Result = 0;
 	switch(Message){
-	case WM_SIZE:{
-		RECT ClientRect;
-		win32_window_dimension Dimension = Win32GetWindowDimension(Window);
-		Win32ResizeDIBSection(&GlobalBackBuffer, Dimension.Width, Dimension.Height);
-		OutputDebugStringA("WM_SIZE\n");
-	}break;
+		case WM_SIZE:{
+			RECT ClientRect;
+			win32_window_dimension Dimension = Win32GetWindowDimension(Window);
+			Win32ResizeDIBSection(&GlobalBackBuffer, Dimension.Width, Dimension.Height);
+			OutputDebugStringA("WM_SIZE\n");
+		}break;
 
-	case WM_DESTROY:{
-		Running = false;
-		OutputDebugStringA("WM_DESTROY\n");
-	}break;
-
-	case WM_CLOSE:{
-		Running = false;
-		OutputDebugStringA("WM_CLOSE\n");
-	}break;
-
-	case WM_SYSKEYDOWN:
-	case WM_SYSKEYUP:
-	case WM_KEYDOWN:
-	case WM_KEYUP:{
-		uint32 VKCode = WParam;
-		bool32 wasDown =  ((LParam & (1 << 30)) != 0);
-		bool32 isDown = ((LParam & (1 << 31)) == 0);
-		if(wasDown == isDown){
-		break;
-		}
-		if( VKCode == 'W' ){
-
-		}
-		else if( VKCode == 'A'){
-
-		}
-		else if( VKCode == 'S'){
-
-		}
-		else if( VKCode == 'D'){
-
-		}
-		else if( VKCode == VK_UP){
-		YOffset+=3;
-		}
-		else if( VKCode == VK_DOWN){
-		YOffset-=3;
-		}
-		else if( VKCode == VK_LEFT){
-
-		}
-		else if( VKCode == VK_RIGHT){
-
-		}
-		else if( VKCode == VK_ESCAPE){
-		}
-		else if( VKCode == VK_SPACE){
-
-		}
-		else if( (VKCode == VK_F4) && ((LParam & (1 << 29)) != 0) ){
-			//Alt & F4
+		case WM_DESTROY:{
 			Running = false;
+			OutputDebugStringA("WM_DESTROY\n");
+		}break;
+
+		case WM_CLOSE:{
+			Running = false;
+			OutputDebugStringA("WM_CLOSE\n");
+		}break;
+
+		case WM_SYSKEYDOWN:
+		case WM_SYSKEYUP:
+		case WM_KEYDOWN:
+		case WM_KEYUP:{
+			uint32 VKCode = WParam;
+			bool32 wasDown =  ((LParam & (1 << 30)) != 0);
+			bool32 isDown = ((LParam & (1 << 31)) == 0);
+			if(wasDown == isDown){
+			break;
+			}
+			if( VKCode == 'W' ){
+
+			}
+			else if( VKCode == 'A'){
+
+			}
+			else if( VKCode == 'S'){
+
+			}
+			else if( VKCode == 'D'){
+
+			}
+			else if( VKCode == VK_UP){
+		
+			}
+			else if( VKCode == VK_DOWN){
+		
+			}
+			else if( VKCode == VK_LEFT){
+
+			}
+			else if( VKCode == VK_RIGHT){
+
+			}
+			else if( VKCode == VK_ESCAPE){
+			}
+			else if( VKCode == VK_SPACE){
+
+			}
+			else if( (VKCode == VK_F4) && ((LParam & (1 << 29)) != 0) ){
+				//Alt & F4
+				Running = false;
+			}
+
+		}break;
+
+		case WM_ACTIVATEAPP:{
+			OutputDebugStringA("WM_ACTIVATEAPP\n");
+		}break;
+
+		case WM_PAINT:{
+			PAINTSTRUCT Paint;
+			HDC DeviceContext = BeginPaint(Window, &Paint);
+			int X = Paint.rcPaint.left;
+			int Y = Paint.rcPaint.top;
+			int Width = Paint.rcPaint.right - Paint.rcPaint.left;
+			int Height = Paint.rcPaint.bottom - Paint.rcPaint.top;
+
+
+			win32_window_dimension Dimension = Win32GetWindowDimension(Window);
+			Win32DisplayBufferToWindow(&GlobalBackBuffer, DeviceContext, Dimension.Width, Dimension.Height);
+
+			EndPaint(Window, &Paint);
 		}
 
-	}break;
-
-	case WM_ACTIVATEAPP:{
-		OutputDebugStringA("WM_ACTIVATEAPP\n");
-	}break;
-
-	case WM_PAINT:{
-		PAINTSTRUCT Paint;
-		HDC DeviceContext = BeginPaint(Window, &Paint);
-		int X = Paint.rcPaint.left;
-		int Y = Paint.rcPaint.top;
-		int Width = Paint.rcPaint.right - Paint.rcPaint.left;
-		int Height = Paint.rcPaint.bottom - Paint.rcPaint.top;
-
-
-		win32_window_dimension Dimension = Win32GetWindowDimension(Window);
-		Win32DisplayBufferToWindow(&GlobalBackBuffer, DeviceContext, Dimension.Width, Dimension.Height);
-
-		EndPaint(Window, &Paint);
-	}
-
-	default:{
-		//OutputDebugStringA("default\n");
-		Result = DefWindowProcA(Window, Message, WParam, LParam);
-	}break;
+		default:{
+			//OutputDebugStringA("default\n");
+			Result = DefWindowProcA(Window, Message, WParam, LParam);
+		}break;
 	}
 	return(Result);
 }
@@ -395,7 +371,7 @@ int CALLBACK WinMain(HINSTANCE Instance,
 	Win32LoadXInput();
 	WNDCLASSA WindowClass = {};
 
-	WindowClass.style = CS_HREDRAW|CS_VREDRAW;
+	WindowClass.style = CS_HREDRAW|CS_VREDRAW|CS_OWNDC;
 	WindowClass.lpfnWndProc = Win32MainWindowCallback;
 	WindowClass.hInstance = Instance;
 	WindowClass.lpszClassName = "DirkwoodWindowClass";
@@ -416,17 +392,12 @@ int CALLBACK WinMain(HINSTANCE Instance,
 		0);
 		if(Window){
 			MSG Message;
-			Running = true;
-	   
-	   
+			
 			win32_sound_output soundOutput = {};
 			soundOutput.samplesPerSecond = 48000;
-			soundOutput.ToneHtz = 256;
 			soundOutput.runningSampleIndex = 0;
-			soundOutput.wavePeriod = soundOutput.samplesPerSecond / soundOutput.ToneHtz;
 			soundOutput.bytesPerSample = sizeof(int16) * 2;
 			soundOutput.secondaryBufferSize = soundOutput.samplesPerSecond * soundOutput.bytesPerSample;
-			soundOutput.volume = 1000;
 			soundOutput.latencySampleCount = soundOutput.samplesPerSecond / 15;
 			Win32InitDSound(Window, soundOutput.samplesPerSecond, soundOutput.secondaryBufferSize);
 			Win32ClearSoundBuffer(&soundOutput);
@@ -436,11 +407,12 @@ int CALLBACK WinMain(HINSTANCE Instance,
 			vib.wLeftMotorSpeed = 0;
 			vib.wRightMotorSpeed = 0;
 		
+			Running = true;
+
 			LARGE_INTEGER lastCounter;
 			QueryPerformanceCounter(&lastCounter);
-			
-			uint64 lastCycleCount = __rdtsc();
 
+			uint64 lastCycleCount = __rdtsc();
 			while(Running){
 				while(PeekMessage(&Message, 0, 0, 0, PM_REMOVE)){
 					if(Message.message == WM_QUIT){
@@ -474,34 +446,23 @@ int CALLBACK WinMain(HINSTANCE Instance,
 						int16 stickX = pad->sThumbLX;
 						int16 stickY = pad->sThumbLY;
 
-						if(aButton){
-							YOffset += 2;
-						}
-						if(bButton){
-							XOffset -= 1;
-						}
+						/*
 						if(yButton){
 							vib.wLeftMotorSpeed += 200;
 							vib.wRightMotorSpeed += 200;
 							XInputSetState(0, &vib);
-						}
-						if(xButton){
-							vib.wLeftMotorSpeed = 0;
-							vib.wRightMotorSpeed = 0;
-							XInputSetState(0, &vib);
-						}
-						soundOutput.ToneHtz = 512 + (int)(256.0f * ((real32)stickY / 30000.0f));
-						soundOutput.wavePeriod = soundOutput.samplesPerSecond / soundOutput.ToneHtz;
+						}*/
+						
 					}
 					else{
 						//controller not available
 					}
 				}
-				game_offscreen_buffer goBuffer = {};
-				goBuffer.Memory = GlobalBackBuffer.Memory;
-				goBuffer.Width = GlobalBackBuffer.Width;
-				goBuffer.Height = GlobalBackBuffer.Height;
-				goBuffer.Pitch = GlobalBackBuffer.Pitch;
+				game_offscreen_buffer preScreenBuffer = {};
+				preScreenBuffer.Memory = GlobalBackBuffer.Memory;
+				preScreenBuffer.Width = GlobalBackBuffer.Width;
+				preScreenBuffer.Height = GlobalBackBuffer.Height;
+				preScreenBuffer.Pitch = GlobalBackBuffer.Pitch;
 
 				DWORD playCursor;
 				DWORD writeCursor;
@@ -532,7 +493,7 @@ int CALLBACK WinMain(HINSTANCE Instance,
 				soundBuffer.sampleCount = bytesToWrite/soundOutput.bytesPerSample;
 
 
-				GameUpdateAndRender(&goBuffer, XOffset, YOffset, &soundBuffer, soundOutput.ToneHtz );
+				GameUpdateAndRender(&preScreenBuffer, &soundBuffer);
 
 				// Sound output testing
 				
@@ -559,7 +520,7 @@ int CALLBACK WinMain(HINSTANCE Instance,
 				real32 MCPF = (real32)((cyclesElasped) / (1000.0f * 1000.0f));
 
 				char Buffer[256];
-				sprintf(Buffer, "%.02fms - %.02fFPS - %.02f Mcycles/f %d\n", msPerFrame, fps, MCPF, soundOutput.ToneHtz);
+				sprintf(Buffer, "%.02fms - %.02fFPS - %.02f Mcycles/f \n", msPerFrame, fps, MCPF);
 				OutputDebugStringA(Buffer);
 
 				lastCycleCount = endCycleCount;

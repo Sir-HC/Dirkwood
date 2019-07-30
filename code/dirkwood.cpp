@@ -40,9 +40,15 @@ GameOutputSound(game_sound_output_buffer *soundBuffer, int toneHtz)
 }
 
 internal void 
-GameUpdateAndRender(game_offscreen_buffer* Buffer, int XOffset, int YOffset, game_sound_output_buffer* soundBuffer, int toneHtz) {
+GameUpdateAndRender(game_offscreen_buffer* Buffer, game_sound_output_buffer* soundBuffer) {
 	//TODO: allow sound offset for more functionality
+	local_persist int BlueOffset = 0;
+	local_persist int GreenOffset = 0;
+	int toneHtz = 256;
+	//soundOutput.ToneHtz = 512 + (int)(256.0f * ((real32)stickY / 30000.0f));
+	//soundOutput.wavePeriod = soundOutput.samplesPerSecond / soundOutput.ToneHtz;
+	//soundOutput.wavePeriod = soundOutput.samplesPerSecond / soundOutput.ToneHtz;
 	GameOutputSound(soundBuffer, toneHtz);
-	renderGradient(Buffer, XOffset, YOffset);
+	renderGradient(Buffer, BlueOffset, GreenOffset);
 
 }

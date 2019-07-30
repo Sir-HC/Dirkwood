@@ -16,7 +16,7 @@ struct game_sound_output_buffer {
 
 // timing, controller/keyboard input, bitmap buffer to use, sound buffer to use
 void GameUpdateAndRender(game_offscreen_buffer *Buffer, int XOffset, int YOffset,
-						 game_sound_output_buffer *soundBuffer);
+						 game_sound_output_buffer *soundBuffer, int toneHtz);
 
 
 #define DIRKWOOD_H

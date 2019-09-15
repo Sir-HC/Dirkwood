@@ -24,7 +24,7 @@ internal void
 GameOutputSound(game_sound_output_buffer *soundBuffer, int toneHtz)
 {
 	local_persist real32 tSine;
-	int16 toneVolume = 300;
+	int16 toneVolume = 3000;
 
 	int wavePeriod = soundBuffer->samplesPerSecond / toneHtz;
 
@@ -35,20 +35,39 @@ GameOutputSound(game_sound_output_buffer *soundBuffer, int toneHtz)
 		int16 sampleValue = (int16)(sineValue * toneVolume);
 		*sampleOut++ = sampleValue;
 		*sampleOut++ = sampleValue;
-		tSine += 2.0f * Pi32 / (real32)wavePeriod;
+		tSine += 2.0f * Pi32 * 1.0f / (real32)wavePeriod;
 	}
 }
 
-internal void 
-GameUpdateAndRender(game_offscreen_buffer* Buffer, game_sound_output_buffer* soundBuffer) {
+internal int 
+GameUpdateAndRender(game_memory* memory, game_input* input, game_offscreen_buffer* Buffer, game_sound_output_buffer* soundBuffer) {
 	//TODO: allow sound offset for more functionality
-	local_persist int BlueOffset = 0;
-	local_persist int GreenOffset = 0;
-	int toneHtz = 256;
-	//soundOutput.ToneHtz = 512 + (int)(256.0f * ((real32)stickY / 30000.0f));
-	//soundOutput.wavePeriod = soundOutput.samplesPerSecond / soundOutput.ToneHtz;
-	//soundOutput.wavePeriod = soundOutput.samplesPerSecond / soundOutput.ToneHtz;
-	GameOutputSound(soundBuffer, toneHtz);
-	renderGradient(Buffer, BlueOffset, GreenOffset);
+	game_state* gameState = (game_state*)memory->PermanentStorage;
+	if (!memory->IsInitialized)
+	{
+		gameState->toneHtz = 256;
 
+		memory->IsInitialized = true;
+	}
+
+	game_controller_input* input0 = &input->controllers[0];
+	
+	if (input0->IsAnalog) {
+		//Use analog movement
+		gameState->toneHtz = 256 + (int)(128.0f * (input0->EndX));
+		gameState->BlueOffset += (int)4.0f * (input0->EndY);
+	}
+	else
+	{
+		//Use digital movement
+	}
+
+	if (input0->Down.endedDown) {
+		gameState->GreenOffset += 1;
+	}
+
+	GameOutputSound(soundBuffer, gameState->toneHtz);
+	renderGradient(Buffer, gameState->BlueOffset, gameState->GreenOffset);
+
+	return gameState->toneHtz;
 }

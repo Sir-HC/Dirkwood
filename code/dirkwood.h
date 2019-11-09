@@ -6,12 +6,31 @@
 #define Assert(Expression) if(!(Expression)) {*(int *)0 = 0;}
 #endif
 
+#if !INTERNAL
+struct debug_read_file_result {
+	uint32 ContentSize;
+	void* Contents;
+};
+internal debug_read_file_result DEBUGPlatformReadEntireFile(char* Filename);
+internal void DEBUGPlatformFreeFileMemory(void* Memory);
+
+internal bool32 DEBUGPlatformWriteEntireFile(char* Filename, uint32 MemorySize, void* Memory);
+
+#endif
+
 #define ArrayCount(Array) (sizeof(Array)/sizeof((Array)[0]))
 
 #define Kilobytes(Value) ((Value)*1024LL)
 #define Megabytes(Value) (Kilobytes(Value)*1024LL)
 #define Gigabytes(Value) (Megabytes(Value)*1024LL)
 #define Terabytes(Value) (Gigabytes(Value)*1024LL)
+
+inline uint32
+SafeTruncateUInt64(uint64 Value) {
+	Assert(Value <= 0xFFFFFFFF);
+	uint32 Result = (uint32)Value;
+	return(Result);
+}
 
 struct game_memory
 {
@@ -50,29 +69,29 @@ struct game_button_state {
 };
 
 struct game_controller_input {
-	real32 StartX;
-	real32 StartY;
-
-	real32 MinX;
-	real32 MinY;
-
-	real32 MaxX;
-	real32 MaxY;
-
-	real32 EndX;
-	real32 EndY;
+	real32 StickAverageX;
+	real32 StickAverageY;
 
 	bool32 IsAnalog;
 
 	union {
-		game_button_state buttons[6];
+		game_button_state buttons[10];
 		struct {
-			game_button_state Up;
-			game_button_state Down;
-			game_button_state Left;
-			game_button_state Right;
+			game_button_state MoveUp;
+			game_button_state MoveDown;
+			game_button_state MoveLeft;
+			game_button_state MoveRight;
+			
+			game_button_state ActionUp;
+			game_button_state ActionDown;
+			game_button_state ActionLeft;
+			game_button_state ActionRight;
+			
 			game_button_state LShoulder;
 			game_button_state RShoulder;
+
+			game_button_state Back;
+			game_button_state Start;
 
 		};
 	};
@@ -80,7 +99,7 @@ struct game_controller_input {
 
 struct game_input {
 
-	game_controller_input controllers[4];
+	game_controller_input controllers[5];
 };
 
 // timing, controller/keyboard input, bitmap buffer to use, sound buffer to use
